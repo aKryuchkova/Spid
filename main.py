@@ -2,6 +2,32 @@ import urllib3
 from bs4 import BeautifulSoup
 import re
 
+import sys
+import argparse
+
+argparser = argparse.ArgumentParser()
+#argparser.add_argument('-dom', dest='domain', required=True)
+argparser.add_argument('domain', help='adress or domain')
+argparser.add_argument('--deep', dest='deepness', default=-1, type=int)
+argparser.add_argument('--link', action='store_true')
+argparser.add_argument('--script', action='store_true')
+argparser.add_argument('--img', action='store_true')
+
+rootDomain = ''
+rootLink = ''
+maxDeepness = 0
+
+args = argparser.parse_args()
+
+rootDomain = args.domain
+if args.deepness >= 0:
+    maxDeepness = args.deepness
+else:
+    maxDeepness = 2**32
+
+
+rootLink = rootDomain
+
 poolManager = urllib3.PoolManager()
 
 error_log = ''
@@ -12,9 +38,9 @@ extern_links = {}
 
 protocols_re = '(https?)|(mailto)'
 
-rootDomain = 'cs.mipt.ru/advanced_python'
-rootLink = 'http://cs.mipt.ru/advanced_python'
-maxDeepness = 2
+#rootDomain = 'cs.mipt.ru/advanced_python'
+#rootLink = 'http://cs.mipt.ru/advanced_python'
+
 num_of_links = 0
 
 class Link(object):
@@ -80,7 +106,7 @@ class LocalLink(Link):
     def navigate(self, deepness):
         if deepness > maxDeepness:
             return
-        print(self.link)
+        #print(self.link)
         global visited_links
         #global invalid_links
         global extern_links
@@ -91,7 +117,19 @@ class LocalLink(Link):
         html = self.getHtml()
         if not html:
             return
-        links = [lnk.get('href') for lnk in html.find_all('a')]
+
+        links_link = []
+        links_script = []
+        links_img = []
+
+        links_href = [lnk.get('href') for lnk in html.find_all('a')]
+        if args.link:
+            links_link = [lnk.get('href') for lnk in html.find_all('link')]
+        if args.script:
+            links_script = [lnk.get('src') for lnk in html.find_all('script')]
+        if args.img:
+            links_img = [lnk.get('src') for lnk in html.find_all('img')]
+        links = links_href + links_link + links_script
         for lnk in links:
             if lnk and len(lnk):
                 if lnk[0] == '/':
@@ -121,7 +159,7 @@ class LocalLink(Link):
                                 extern_links.update({link.link : link})
 class ExternalLink(Link):
     def dummy(self):
-        return
+        return ':('
 
 
 RootLink = LocalLink(rootLink, {}, {})
